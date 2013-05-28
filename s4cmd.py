@@ -20,6 +20,7 @@
 Super S3 command line tool.
 """
 
+import math
 import sys, os, re, optparse, multiprocessing, cStringIO, fnmatch, time, hashlib, errno
 import glob, logging, traceback, Queue, types, threading, random, ConfigParser
 
@@ -67,6 +68,7 @@ class Options:
     self.dry_run = (opt and opt.dry_run != None)
     self.verbose = (opt and opt.verbose != None)
     self.debug = (opt and opt.debug != None)
+    self.human_readable = (opt and opt.human_readable != None)
     self.use_ssl = (opt and opt.use_ssl != None)
     self.show_dir = (opt and opt.show_dir != None)
     self.ignore_empty_source = (opt and opt.ignore_empty_source)
@@ -1124,7 +1126,7 @@ class CommandHandler(object):
         raise InvalidArgument('Invalid parameter: %s, %s expected' % (args[i], fmtMap[fmt.split(',')[0]]))
 
   @log_calls
-  def pretty_print(self, keylist):
+  def pretty_print(self, keylist, human_readable):
     '''Pretty print the result of s3walk. Here we calculate the maximum width
        of each column and align them.
     '''
@@ -1137,6 +1139,29 @@ class CommandHandler(object):
       result = m.groups()[0:5] if m else ['', '', '', '', '']
       return TIMESTAMP_FORMAT % result
 
+    def format_size(size, human_readable):
+      '''Format the size column for pretty print.'''
+      if not human_readable:
+        return str(size)
+
+      units = ''
+      power = math.log(size) / math.log(1024)
+      if power < 1.0:
+        units = 'B'
+      elif power < 2.0:
+        units = 'K'
+      elif power < 3.0:
+        units = 'M'
+      elif power < 4.0:
+        units = 'G'
+      elif power < 5.0:
+        units = 'T'
+      elif power < 6.0:
+        units = 'P'
+
+      size_in_units = size / float(1024 ** math.floor(power))
+      return '%0.1f%s' % (size_in_units, units)
+
     cwidth = [0, 0, 0]
     format = '%%%ds %%%ds %%-%ds'
 
@@ -1144,7 +1169,10 @@ class CommandHandler(object):
     result = []
     for key in keylist:
       last_modified = normalize_time(key['last_modified'])
-      size = str(key['size']) if not key['is_dir'] else 'DIR'
+      if key['is_dir']:
+        size = 'DIR'
+      else:
+        size = format_size(key['size'], human_readable)
       name = key['name']
       item = (last_modified, size, name)
       for i, value in enumerate(item):
@@ -1161,11 +1189,13 @@ class CommandHandler(object):
   def ls_handler(self, args):
     '''Handler for ls command'''
     if len(args) == 1:
-      self.pretty_print(self.s3handler().list_buckets())
+      self.pretty_print(self.s3handler().list_buckets(),
+                        self.opt.human_readable)
       return
 
     self.validate('cmd|s3', args)
-    self.pretty_print(self.s3handler().s3walk(args[1]))
+    self.pretty_print(self.s3handler().s3walk(args[1]),
+                      self.opt.human_readable)
 
   @log_calls
   def put_handler(self, args):
@@ -1261,6 +1291,7 @@ if __name__ == '__main__':
   parser.add_option('-t', '--retry', help = 'number of retries before giving up', dest = 'retry', type = int, default = DEFAULT_RETRY)
   parser.add_option('-c', '--num-threads', help = 'number of concurrent threads', type = int)
   parser.add_option('-d', '--show-directory', help = 'show directory instead of its content', dest = 'show_dir', action = 'store_true')
+  parser.add_option('-h', '--human-readable', help = 'show sizes in human readable format', dest = 'human_readable', action = 'store_true')
   parser.add_option('--ignore-empty-source', help = 'ignore empty source from s3', dest = 'ignore_empty_source', action = 'store_true')
   parser.add_option('--use-ssl', help = 'use SSL connection to S3', dest = 'use_ssl', action = 'store_true')
   parser.add_option('--verbose', help = 'verbose output', dest = 'verbose', action = 'store_true')
