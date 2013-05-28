@@ -44,7 +44,7 @@ RETRY_DELAY = 10
 PATH_SEP = '/'
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S UTC'
 TIMESTAMP_REGEX = re.compile(r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}).(\d{3})Z')
-TIMESTAMP_FORMAT = '%4s-%2s-%2s %2s:%2s'
+TIMESTAMP_FORMAT = '%4s-%2s-%2s %2s:%2s:%2s'
 
 # Environment variable names for S3 credentials.
 S3_ACCESS_KEY_NAME = "S3_ACCESS_KEY"
@@ -1136,7 +1136,7 @@ class CommandHandler(object):
       if not timestamp:
         return ' ' * 16
       m = TIMESTAMP_REGEX.match(timestamp)
-      result = m.groups()[0:5] if m else ['', '', '', '', '']
+      result = m.groups()[0:6] if m else ['', '', '', '', '', '']
       return TIMESTAMP_FORMAT % result
 
     def format_size(size, human_readable):
