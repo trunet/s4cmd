@@ -20,14 +20,26 @@
 # Tests for s4cmd command line tool
 #
 
-LOCALDIR=./test-tmp
-REMOTEDIR=s3://br-tmp/s4cmd/test
+
 S4CMD=$(pwd)/s4cmd.py
-FILESIZE=1M
+
+if [[ $OSTYPE == "darwin"* ]]; then
+  # OSX
+  MD5CMD=$(which "md5")
+  FILESIZE=1m
+  LOCALDIR=$(mktemp -d -t "tmp")
+else
+  MD5CMD=$(which "md5sum")
+  FILESIZE=1M
+  LOCALDIR=$(mktemp -d)
+fi
+
+echo "Using local directory: $LOCALDIR"
+
+REMOTEDIR=s3://s4test/$(uuidgen)
+echo "Using remote directory: $REMOTEDIR"
 
 # Create testing data locally
-rm -rf $LOCALDIR
-mkdir $LOCALDIR
 pushd $LOCALDIR
 
 mkdir source
@@ -118,11 +130,8 @@ pushd source
       dd if=/dev/urandom of=c3-101 bs=$FILESIZE count=2
     popd
   popd
-  
-popd
 
-# Clear target testing directory
-$S4CMD del -r $REMOTEDIR/
+popd
 
 echo 'Start test cases'
 
@@ -136,10 +145,10 @@ mkdir $CASE_ID
 $S4CMD put source/001 $REMOTEDIR/$CASE_ID/001 > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/001 $CASE_ID/001 > $CASE_ID.log 2>&1
 
-md5sum source/001 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/001 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -153,10 +162,10 @@ mkdir $CASE_ID
 $S4CMD put source/001 $REMOTEDIR/$CASE_ID/001-1/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/001-1/001 $CASE_ID/001-1 > $CASE_ID.log 2>&1
 
-md5sum source/001 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/001-1 | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/001 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/001-1 | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -170,10 +179,10 @@ mkdir $CASE_ID
 $S4CMD put source/*/?2/*-??1 $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/* $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -187,10 +196,10 @@ mkdir $CASE_ID
 $S4CMD put source/*/?2/b?-1?1 $REMOTEDIR/$CASE_ID/a > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/a $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/b?-1?1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/b?-1?1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -232,10 +241,10 @@ echo "Test $CASE_ID: single directory (upload and download)"
 $S4CMD put -r source/a/a1/ $REMOTEDIR/$CASE_ID > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID/ $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -248,10 +257,10 @@ echo "Test $CASE_ID: single directory (Trailing slash)"
 $S4CMD put -r source/a/a1/ $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID/a1/ $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -265,10 +274,10 @@ mkdir $CASE_ID
 $S4CMD put -r source/a/a?/ $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID/a?/ $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/a/a?/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/*/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a?/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/*/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -282,10 +291,10 @@ mkdir $CASE_ID
 $S4CMD put -r source/a/a $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID/a $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/a/a/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/*/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/*/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -298,10 +307,10 @@ echo "Test $CASE_ID: trailing slash"
 $S4CMD put -r source/a/a1 $REMOTEDIR/$CASE_ID > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -314,10 +323,10 @@ echo "Test $CASE_ID: trailing slash (normalization)"
 $S4CMD put -r source/a/a1/ $REMOTEDIR/$CASE_ID > $CASE_ID.log 2>&1
 $S4CMD get -r $REMOTEDIR/$CASE_ID $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/a/a1/* | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -332,7 +341,7 @@ $S4CMD sync $REMOTEDIR/$CASE_ID/ $CASE_ID/ > $CASE_ID.log 2>&1
 tree $CASE_ID/source | tail -n +2 > $CASE_ID.tree
 
 result=$(diff source.tree $CASE_ID.tree)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.tree && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -352,7 +361,7 @@ cd ..
 tree $CASE_ID/source | tail -n +2 > $CASE_ID.tree
 
 result=$(diff source.tree $CASE_ID.tree)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.tree && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -366,10 +375,10 @@ mkdir $CASE_ID
 $S4CMD sync source $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/source/*/?2/*-??1 $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -383,10 +392,10 @@ mkdir $CASE_ID
 $S4CMD sync source/ $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/source/*/?2/*-??1 $CASE_ID > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -401,10 +410,10 @@ $S4CMD put source/001 $REMOTEDIR/$CASE_ID/001_copy > $CASE_ID.log 2>&1
 $S4CMD cp $REMOTEDIR/$CASE_ID/001_copy $REMOTEDIR/$CASE_ID/001 > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/001 $CASE_ID/001 > $CASE_ID.log 2>&1
 
-md5sum source/001 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/001 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -419,10 +428,10 @@ $S4CMD sync source $REMOTEDIR/$CASE_ID-copy/ > $CASE_ID.log 2>&1
 $S4CMD cp -r $REMOTEDIR/$CASE_ID-copy $REMOTEDIR/$CASE_ID > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/source/*/?2/*-??1 $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -437,10 +446,10 @@ $S4CMD sync source $REMOTEDIR/$CASE_ID-copy/ > $CASE_ID.log 2>&1
 $S4CMD cp -r $REMOTEDIR/$CASE_ID-copy/source/*/?2/*-??1 $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/* $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -455,10 +464,10 @@ $S4CMD put source/001 $REMOTEDIR/$CASE_ID/001_copy > $CASE_ID.log 2>&1
 $S4CMD mv $REMOTEDIR/$CASE_ID/001_copy $REMOTEDIR/$CASE_ID/001 > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/001 $CASE_ID/001 > $CASE_ID.log 2>&1
 
-md5sum source/001 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/001 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/001 | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -473,10 +482,10 @@ $S4CMD sync source $REMOTEDIR/$CASE_ID-copy/ > $CASE_ID.log 2>&1
 $S4CMD mv -r $REMOTEDIR/$CASE_ID-copy $REMOTEDIR/$CASE_ID > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/source/*/?2/*-??1 $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -491,10 +500,10 @@ $S4CMD sync source $REMOTEDIR/$CASE_ID-copy/ > $CASE_ID.log 2>&1
 $S4CMD mv -r $REMOTEDIR/$CASE_ID-copy/source/*/?2/*-??1 $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/* $CASE_ID/ > $CASE_ID.log 2>&1
 
-md5sum source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD source/*/?2/*-??1 | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/* | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -538,10 +547,10 @@ cp ../large large
 $S4CMD put large $REMOTEDIR/$CASE_ID/large > $CASE_ID.log 2>&1
 $S4CMD get $REMOTEDIR/$CASE_ID/large $CASE_ID/large > $CASE_ID.log 2>&1
 
-md5sum large | cut -f1 -d' ' > $CASE_ID.md5
-md5sum $CASE_ID/large | cut -f1 -d' ' > $CASE_ID.chk
+$MD5CMD large | cut -f1 -d' ' > $CASE_ID.md5
+$MD5CMD $CASE_ID/large | cut -f1 -d' ' > $CASE_ID.chk
 result=$(diff $CASE_ID.md5 $CASE_ID.chk)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
@@ -556,10 +565,13 @@ $S4CMD del -r $REMOTEDIR/$CASE_ID/ > $CASE_ID.log 2>&1
 $S4CMD ls $REMOTEDIR/$CASE_ID/ > $CASE_ID.out 2> $CASE_ID.err
 
 result=$(cat $CASE_ID.out)
-if [[ -z "$result" ]]; then
+if [[ -s $CASE_ID.md5 && -z "$result" ]]; then
   echo "  - OK"
 else
   echo "  - Failed"
 fi
 
-popd # from local-tmp
+popd # from LOCALDIR
+
+# Cleanup
+#rm -r $LOCALDIR
