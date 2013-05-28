@@ -69,6 +69,7 @@ class Options:
     self.verbose = (opt and opt.verbose != None)
     self.debug = (opt and opt.debug != None)
     self.human_readable = (opt and opt.human_readable != None)
+    self.reduced_redundancy = (opt and opt.reduced_redundancy != None)
     self.use_ssl = (opt and opt.use_ssl != None)
     self.show_dir = (opt and opt.show_dir != None)
     self.ignore_empty_source = (opt and opt.ignore_empty_source)
@@ -951,13 +952,13 @@ class ThreadUtil(S3Handler, ThreadPool.Worker):
       if fsize < SINGLEPART_UPLOAD_MAX:
         key = boto.s3.key.Key(bucket)
         key.key = s3url.path
-        key.set_contents_from_filename(source)
+        key.set_contents_from_filename(source, reduced_redundancy=self.opt.reduced_redundancy)
         message('%s => %s', source, target)
         return
 
       # Here we need to have our own md5 value because multipart upload calculates
       # different md5 values.
-      mpu = bucket.initiate_multipart_upload(s3url.path, metadata = {'md5': self.file_hash(source)})
+      mpu = bucket.initiate_multipart_upload(s3url.path, reduced_redundancy=self.opt.reduced_redundancy, metadata = {'md5': self.file_hash(source)})
 
       for args in self.get_file_splits(mpu.id, source, target, fsize, DEFAULT_SPLIT):
         self.pool.upload(*args)
@@ -1303,6 +1304,7 @@ if __name__ == '__main__':
   parser.add_option('-d', '--show-directory', help = 'show directory instead of its content', dest = 'show_dir', action = 'store_true')
   parser.add_option('--human-readable', help = 'show sizes in human readable format', dest = 'human_readable', action = 'store_true')
   parser.add_option('--ignore-empty-source', help = 'ignore empty source from s3', dest = 'ignore_empty_source', action = 'store_true')
+  parser.add_option('--reduced-redundancy', help = 'use reduced redundancy for storage', dest = 'reduced_redundancy', action = 'store_true')
   parser.add_option('--use-ssl', help = 'use SSL connection to S3', dest = 'use_ssl', action = 'store_true')
   parser.add_option('--verbose', help = 'verbose output', dest = 'verbose', action = 'store_true')
   parser.add_option('--debug', help = 'debug output', dest = 'debug', action = 'store_true')
