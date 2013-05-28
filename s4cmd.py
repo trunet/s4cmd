@@ -1291,7 +1291,7 @@ if __name__ == '__main__':
   parser.add_option('-t', '--retry', help = 'number of retries before giving up', dest = 'retry', type = int, default = DEFAULT_RETRY)
   parser.add_option('-c', '--num-threads', help = 'number of concurrent threads', type = int)
   parser.add_option('-d', '--show-directory', help = 'show directory instead of its content', dest = 'show_dir', action = 'store_true')
-  parser.add_option('-h', '--human-readable', help = 'show sizes in human readable format', dest = 'human_readable', action = 'store_true')
+  parser.add_option('--human-readable', help = 'show sizes in human readable format', dest = 'human_readable', action = 'store_true')
   parser.add_option('--ignore-empty-source', help = 'ignore empty source from s3', dest = 'ignore_empty_source', action = 'store_true')
   parser.add_option('--use-ssl', help = 'use SSL connection to S3', dest = 'use_ssl', action = 'store_true')
   parser.add_option('--verbose', help = 'verbose output', dest = 'verbose', action = 'store_true')
