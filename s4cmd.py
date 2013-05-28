@@ -812,6 +812,16 @@ class ThreadUtil(S3Handler, ThreadPool.Worker):
     if not os.path.exists(localFilename):
       return False
     localmd5 = self.file_hash(localFilename)
+    if hasattr(remoteKey, "x-amz-meta-s3cmd-attrs"):
+      attrs = {}
+      for attr in remoteKey.x-amz-meta-s3cmd-attrs.split("/"):
+        key, val = attr.split(":")
+        attrs[key] = val
+      try:
+        remotemd5 = attrs['md5']
+        return (remotemd5 == localmd5)
+      except KeyError:
+        pass
     # check multiple md5 locations
     return (remoteKey.etag and remoteKey.etag == '"%s"' % localmd5) or \
            (remoteKey.md5 and remoteKey.md5 == localmd5) or \
